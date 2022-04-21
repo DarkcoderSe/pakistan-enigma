@@ -26,7 +26,7 @@
                                 <input type="file" name="files[]" class="form-control" placeholder="Select HTML Files" multiple required>
 
                                 @if ($errors->any('files'))
-                                @foreach ($errors as $error)
+                                @foreach ($errors->all() as $error)
                                 <span class="small text-danger">
                                     {{ $error }}
                                 </span>

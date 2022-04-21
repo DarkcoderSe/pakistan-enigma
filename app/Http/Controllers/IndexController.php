@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 
 use Goutte;
+use App\Exports\CandidateExport;
+use Excel;
 use Symfony\Component\DomCrawler\Crawler;
 
 class IndexController extends Controller
@@ -22,24 +24,21 @@ class IndexController extends Controller
             'files.*' => 'mimes:html'
         ]);
 
-        // dd($req->all());
         $files = $request->file('files');
 
         if($request->hasFile('files'))
         {
             foreach ($files as $file) {
-                // $file->store('files');
                 $content = file_get_contents($file->getRealPath());
                 $data = $this->scrap($content);
-                // dd($data);
                 $result = $result->merge($data);
                 $result->all();
-                // $result[] = $data;
             }
         }
 
+        $export = new CandidateExport($result->toArray());
 
-        return $result;
+        return Excel::download($export, 'candidates.xlsx');
 
     }
 
@@ -62,7 +61,7 @@ class IndexController extends Controller
 
 			$dump = $node->filter('.lpstf')->eq(0)->text('-1');
 
-			if (strpos($dump, '+92') !== false) {
+			if (strpos($dump, '+92') !== false || strpos($dump, '@') !== false) {
 				$dumpCollection = explode(' ', $dump);
 				$text = [];
 				foreach ($dumpCollection as $dumpText) {
