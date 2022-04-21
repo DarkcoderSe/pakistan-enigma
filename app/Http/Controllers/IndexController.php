@@ -4,13 +4,15 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 
-use Goutte;
+use App\Traits\Scrapper;
+
 use App\Exports\CandidateExport;
 use Excel;
-use Symfony\Component\DomCrawler\Crawler;
 
 class IndexController extends Controller
 {
+    use Scrapper;
+
 	public function index()
 	{
         return view('welcome');
@@ -30,69 +32,31 @@ class IndexController extends Controller
         {
             foreach ($files as $file) {
                 $content = file_get_contents($file->getRealPath());
-                $data = $this->scrap($content);
+                $data = $this->scrap($content, $request);
                 $result = $result->merge($data);
                 $result->all();
             }
         }
 
-        $export = new CandidateExport($result->toArray());
+        $headers = ['name'];
+        $request->get('phone') == 'on' ? $headers[] = 'phone' : '';
+        $request->get('email') == 'on' ? $headers[] = 'email' : '';
+        $request->get('current_salary') == 'on' ? $headers[] = 'current_salary' : '';
+        $request->get('expected_salary') == 'on' ? $headers[] = 'expected_salary' : '';
+        $request->get('experience') == 'on' ? $headers[] = 'experience' : '';
 
-        return Excel::download($export, 'candidates.xlsx');
-
+        return view('result')->with([
+            'candidates' => $result,
+            'headers' => $headers
+        ]);
     }
 
-    public function scrap($path)
+
+    public function export(Request $request)
     {
-		$names = [];
-		$phone = [];
-		$email = [];
-
-        // $crawler = Goutte::request('GET', $path);
-        $crawler = new Crawler($path);
-
-
-		$nodeCount = 0;
-        $crawler->filter('.cvsrcbox_body')->each(function ($node) use (&$names, &$nodeCount, &$phone, &$email) {
-
-			$node->filter('.cvappname')->each(function ($childNode) use (&$names, &$nodeCount) {
-				$names[$nodeCount] = $childNode->text();
-			});
-
-			$dump = $node->filter('.lpstf')->eq(0)->text('-1');
-
-			if (strpos($dump, '+92') !== false || strpos($dump, '@') !== false) {
-				$dumpCollection = explode(' ', $dump);
-				$text = [];
-				foreach ($dumpCollection as $dumpText) {
-					if (strlen($dumpText) > 11) {
-						// $text[] = $dumpText;
-						if (strpos($dumpText, '+92') !== false) {
-							$phone[$nodeCount] = $dumpText;
-						}
-						else if (strpos($dumpText, '@') !== false) {
-							$email[$nodeCount] = $dumpText;
-						}
-					}
-				}
-				// $phone[$nodeCount] = $text;
-			}
-
-
-			$nodeCount++;
-        });
-
-		// dd($names, $phone, $email);
-
-		$result = [];
-		foreach ($names as $key => $name) {
-			$result[] = collect([
-				'name' => $name,
-				'phone' => $phone[$key] ?? '',
-				'email' => $email[$key] ?? ''
-			]);
-		}
-
-        return collect($result);
+        $export = new CandidateExport($result->toArray());
+        return Excel::download($export, 'candidates.xlsx');
     }
+
+
 }
